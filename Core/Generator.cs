@@ -5,7 +5,7 @@ namespace GenCL.Core
 {
     public class Generator
     {
-        public static void Generate(string path, string projectName)
+        public static void Generate(string path, string projectName, string ModelsName)
         {
             try
             {
@@ -31,7 +31,7 @@ namespace GenCL.Core
                 CheckDestination(path);
                 foreach (var x in dt)
                 {
-                    var script = GetScript(x.TABLE_NAME, projectName);
+                    var script = GetScript(x.TABLE_NAME, projectName, ModelsName);
                     if (script != null)
                     {
                         string fileName = $"{path}\\{script.TableName}.cs";
@@ -55,7 +55,7 @@ namespace GenCL.Core
             if (!Directory.Exists(path))
                 Directory.CreateDirectory(path);
         }
-        private static Script GetScript(string tableName, string projectName)
+        private static Script GetScript(string tableName, string projectName, string ModelsName)
         {
             var result = new Script();
             try
@@ -64,12 +64,13 @@ namespace GenCL.Core
                     Drop Table #ResultScript
 
 declare @TableName sysname = @TableName_
-declare @NameSpace varchar(100) = @Project + '.Models';
+declare @NameSpace varchar(100) = @Project + '.' + isnull(@Models,'Models') ;
 declare @Result varchar(max) = 'namespace ' + @namespace + CHAR(10) + '{ ' + CHAR(10) + CHAR(9) + 'public class ' + @TableName + '
 ' + CHAR(9) + '{'
 
-select @Result =  @Result + CHAR(9) + '
-    public ' + ColumnType + NullableSign + ' ' + ColumnName + ' { get; set; }' +CHAR(10) + '
+select @Result =  @Result + char(10) + CHAR(9) +  
+	StrPrimaryKey + StrIdentity + strComputed +
+	CHAR(9) + 'public ' + ColumnType + NullableSign + ' ' + ColumnName + ' { get; set; }' +CHAR(10) + '
 '
 from
 (
@@ -108,19 +109,24 @@ from
             else 'UNKNOWN_' + typ.name
         end ColumnType,
         case 
-            when col.is_nullable = 1 and typ.name in ('bigint', 'bit', 'date', 'datetime', 'datetime2', 'datetimeoffset', 'decimal', 'float', 'int', 'money', 'numeric', 'real', 'smalldatetime', 'smallint', 'smallmoney', 'time', 'tinyint', 'uniqueidentifier') 
+            when col.is_nullable = 1 and typ.name in ('varchar', 'nvarchar', 'bigint', 'bit', 'date', 'datetime', 'datetime2', 'datetimeoffset', 'decimal', 'float', 'int', 'money', 'numeric', 'real', 'smalldatetime', 'smallint', 'smallmoney', 'time', 'tinyint', 'uniqueidentifier') 
             then '?' 
             else '' 
-        end NullableSign
+        end NullableSign,
+		case when keys.COLUMN_NAME is not null then CHAR(9) + '[Key]' + char(10) + CHAR(9)  else '' end StrPrimaryKey,
+		case when col.is_identity = 1 then CHAR(9) + '[DatabaseGenerated(DatabaseGeneratedOption.Identity)]' + char(10) + CHAR(9) else '' end StrIdentity, 
+		case when col.is_computed = 1 then CHAR(9) + '[DatabaseGenerated(DatabaseGeneratedOption.Computed)]' + char(10) + CHAR(9) else '' end strComputed
     from sys.columns col
         join sys.types typ on
             col.system_type_id = typ.system_type_id AND col.user_type_id = typ.user_type_id
+		left join INFORMATION_SCHEMA.KEY_COLUMN_USAGE keys on keys.COLUMN_NAME = col.[name] and keys.TABLE_NAME = @TableName
+		and OBJECTPROPERTY(OBJECT_ID(keys.CONSTRAINT_SCHEMA + '.' + QUOTENAME(keys.CONSTRAINT_NAME)), 'IsPrimaryKey') = 1
     where object_id = object_id(@TableName)
 ) t
 order by ColumnId
 
-set @Result = @Result  + '
-} '+ CHAR(10) +'}'
+set @Result = @Result + CHAR(10) + CHAR(9) + 
+'} '+ CHAR(10) +'}'
 
 
     CREATE TABLE #ResultScript 
@@ -132,7 +138,7 @@ set @Result = @Result  + '
 
 				SELECT @TableName TableName,* from #resultscript";
 
-                var param = new { TableName_ = tableName, Project = projectName };
+                var param = new { TableName_ = tableName, Project = projectName, Models = ModelsName };
 
                 result = DataService.Find<Script>(sql, param);
             }
