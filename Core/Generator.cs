@@ -124,8 +124,8 @@ from
     where object_id = object_id(@TableName)
 ) t
 order by ColumnId
-
-set @Result = @Result + CHAR(10) + CHAR(9) + 
+declare @using varchar(max) = 'using System.ComponentModel.DataAnnotations.Schema;' + CHAR(10) + 'using System.ComponentModel.DataAnnotations;' + CHAR(10) + CHAR(10)
+set @Result = @using + @Result + CHAR(10) + CHAR(9) + 
 '} '+ CHAR(10) +'}'
 
 
