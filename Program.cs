@@ -6,12 +6,13 @@ var builder = new ConfigurationBuilder();
 builder.SetBasePath(Directory.GetCurrentDirectory())
         .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
 IConfiguration config = builder.Build();        
-string conns, outputPath, projectName = string.Empty;
+string conns, outputPath, projectName, ModelsName = string.Empty;
 conns = config["ConnectionStrings:GenCL"] + "";
 outputPath = config["OutputPath"] + "";
 projectName = config["ProjectName"] + "";
+ModelsName = config["ModelsName"] + "";
 Console.WriteLine(conns);
 Console.WriteLine(outputPath);
 GenCL.Utilities.DataService.ConnectionString = conns;
-GenCL.Core.Generator.Generate(outputPath,projectName);
+GenCL.Core.Generator.Generate(outputPath,projectName, ModelsName);
 
